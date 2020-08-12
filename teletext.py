@@ -1,8 +1,8 @@
 import urllib3
 from bs4 import BeautifulSoup
-import textwrap
 import hashlib
 import sqlite3
+import time
 from sqlite3 import Error
 
 def create_conn(db_file):
@@ -24,85 +24,98 @@ def create_table(conn, create_table_SQL):
         print(e)
 
 def insert_site(conn, site):
-
-    sql = ''' INSERT INTO sites(hash,site,content)
-                VALUES(?,?,?) '''
+    
+    sql = ''' INSERT INTO sites(unixtime,hash,tafel,description,title)
+                VALUES(?,?,?,?,?) '''
     try:
         c = conn.cursor()
         c.execute(sql, site)
         conn.commit()
         return c.lastrowid
     except Error as e:
-        print(e)
+        err = e
 
-def get_site(conn, site):
-    #sql = ''' SELECT content from sites WHERE site = ? '''
-    sql = ''' SELECT content from sites '''
+def get_sites(conn):
+    sql = ''' SELECT description,title from sites order by unixtime desc limit 3 '''
     try:
         c = conn.cursor()
-        #c.execute(sql, (site,))
         c.execute(sql)
         rows = c.fetchall()
         return rows
     except Error as e:
         print(e)
 
-def store_site(conn, site):
-    link = "http://www.ard-text.de/mobil/"+str(site)
+def store_site(conn, tafel):
+    link = "http://www.ard-text.de/mobil/"+str(tafel)
     http = urllib3.PoolManager()
     r = http.request('GET', link)
     
     soup = BeautifulSoup(r.data, 'html.parser')
-    bla = soup.find('div', class_='std').text
-    bla_hash = hashlib.md5(bla.encode('utf-8')).hexdigest()
-    content = (bla_hash,site,bla)
-    insert_site(conn,content)
+    desc = soup.find('div', class_='std')
+    title = soup.find('h1')
+    if desc is not None:
+        if title is not None:
+            title = title.text.replace("<h1>","")
+            title = title.replace("<b>","")
+            title = title.replace("</h1>","")
+            title = title.replace("</b>","")
+        else:
+            title = "N/A"
+        unixtime = time.time()
+        desc = desc.text
+        desc_hash = hashlib.md5(desc.encode('utf-8')).hexdigest()
+        content = (unixtime,desc_hash,tafel,desc,title)
+        insert_site(conn,content)
 
-def gen_rss():
-    out = """ 
-            <?xml version=1.0 encoding=UTF-8 ?>
-            <rss version=2.0>
+def gen_rss(rows):
+    out = """<?xml version="1.0" encoding="UTF-8" ?>
+            <rss version="2.0">
 
             <channel>
-                <title>W3Schools Home Page</title>
-                <link>https://www.w3schools.com</link>
-                <description>Free web building tutorials</description>"""
+                <title>ARD Teletext RSS Feed (inofficial)</title>
+                <link>https://www.exitnode.net</link>
+                <description>bla</description>"""
 
-     #bla = """ <item>
-     #           <title>RSS Tutorial</title>
-     #           <link>https://www.w3schools.com/xml/xml_rss.asp</link>
-     #           <description>New RSS tutorial on W3Schools</description>
-     #       </item>"""
+    for r in rows:
+        cont = r[0]
+        title = r[1]
 
-    out += """ </channel>
+        if cont is not None:
+            cont = cont.replace("\n","")
+            out+= """
+                <item>
+                <title>""" + title + """</title>
+                <description>
+                """ + cont + """
+                </description>
+                </item>"""
+
+    out += """ 
+            </channel>
             </rss>"""
+
     print(out)
 
 def main():
     db = r"/home/micha/bla.db"
     sql_create_sites_table = """CREATE TABLE IF NOT EXISTS sites (
+                                    unixtime int NOT NULL,
                                     hash text PRIMARY KEY,
-                                    site int,
-                                    content text
+                                    tafel int,
+                                    description text,
+                                    title text
                                 ); """
 
-    #conn = create_conn(db)
-    conn = None
+    conn = create_conn(db)
     if conn is not None:
         create_table(conn, sql_create_sites_table)
         for s in range(104, 116):
             store_site(conn,s)
 
-        rows = get_site(conn,"104")
-        for row in rows:
-            #r = row[0].replace("^ ", "")
-            #print(row[0])
-
-            print(textwrap.fill(r, 40))
+        rows = get_sites(conn)
+        gen_rss(rows)
     else:
         print("Error: No db conn")
-
-    gen_rss()
 
 if __name__ == "__main__":
     main()
