@@ -7,8 +7,11 @@ from sqlite3 import Error
 
 # configure this to your needs
 xml_out = "/home/micha/websites/exitnode.net/htdocs/ard_teletext.xml"
-db = r"/home/micha/bla.db"
+db = r"/home/micha/teletext.db"
+articles = "20"
+url = "https://www.ard-text.de/mobil/"
 
+# creates a connection to the SQLite database
 def create_conn(db_file):
     conn = None
     try:
@@ -19,8 +22,8 @@ def create_conn(db_file):
 
     return conn
 
+# creates necessary tables inside the SQLite database
 def create_tables(conn):
-
     sql_create_tafeln_table = """CREATE TABLE IF NOT EXISTS tafeln (
                                     unixtime int NOT NULL,
                                     hash text PRIMARY KEY,
@@ -36,6 +39,7 @@ def create_tables(conn):
     except Error as e:
         print(e)
 
+# inserts the text of a teletext tafel into the database
 def insert_tafel(conn, tafel):
     
     sql = ''' INSERT INTO tafeln(unixtime,hash,tafel,description,title)
@@ -48,8 +52,9 @@ def insert_tafel(conn, tafel):
     except Error as e:
         err = e
 
+# returns the latest n tafeln 
 def get_tafeln(conn):
-    sql = ''' SELECT description,title from tafeln order by unixtime desc limit 20 '''
+    sql = "SELECT description,title from tafeln order by unixtime desc limit " + articles
     try:
         c = conn.cursor()
         c.execute(sql)
@@ -58,8 +63,9 @@ def get_tafeln(conn):
     except Error as e:
         print(e)
 
-def store_tafel(conn, tafel):
-    link = "http://www.ard-text.de/mobil/"+str(tafel)
+# downloads a teletext tafel and prepares it for database storage
+def download_tafel(conn, tafel):
+    link = url+str(tafel)
     http = urllib3.PoolManager()
     r = http.request('GET', link)
     
@@ -80,6 +86,7 @@ def store_tafel(conn, tafel):
         content = (unixtime,desc_hash,tafel,desc,title)
         insert_tafel(conn,content)
 
+# generates the RSS feed XML based on database content
 def gen_rss(rows):
     f = open(xml_out, "w")
 
@@ -92,17 +99,16 @@ def gen_rss(rows):
                 <description>RSS Feed des ARD Teletexts (Tafeln 104 bis 129)</description>"""
 
     for r in rows:
-        cont = r[0]
+        desc = r[0]
         title = r[1]
 
-        if cont is not None:
-            cont = cont.replace("\n"," ")
+        if desc is not None:
+            desc = desc.replace("\n"," ")
+            desc = desc.strip()
             out+= """
                 <item>
                 <title>""" + title + """</title>
-                <description>
-                """ + cont + """
-                </description>
+                <description>""" + desc + """</description>
                 </item>"""
 
     out += """ 
@@ -113,12 +119,13 @@ def gen_rss(rows):
     f.write(out)
     f.close()
 
+# the main funtion
 def main():
     conn = create_conn(db)
     if conn is not None:
         create_tables(conn)
         for s in range(104, 129):
-            store_tafel(conn,s)
+            download_tafel(conn,s)
 
         rows = get_tafeln(conn)
         gen_rss(rows)
