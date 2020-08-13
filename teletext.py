@@ -5,6 +5,10 @@ import sqlite3
 import time
 from sqlite3 import Error
 
+# configure this to your needs
+xml_out = "/home/micha/websites/exitnode.net/htdocs/ard_teletext.xml"
+db = r"/home/micha/bla.db"
+
 def create_conn(db_file):
     conn = None
     try:
@@ -15,28 +19,37 @@ def create_conn(db_file):
 
     return conn
 
-def create_table(conn, create_table_SQL):
+def create_tables(conn):
+
+    sql_create_tafeln_table = """CREATE TABLE IF NOT EXISTS tafeln (
+                                    unixtime int NOT NULL,
+                                    hash text PRIMARY KEY,
+                                    tafel int,
+                                    description text,
+                                    title text
+                                ); """
+
     try:
         c = conn.cursor()
-        c.execute(create_table_SQL)
+        c.execute(sql_create_tafeln_table)
         return conn
     except Error as e:
         print(e)
 
-def insert_site(conn, site):
+def insert_tafel(conn, tafel):
     
-    sql = ''' INSERT INTO sites(unixtime,hash,tafel,description,title)
+    sql = ''' INSERT INTO tafeln(unixtime,hash,tafel,description,title)
                 VALUES(?,?,?,?,?) '''
     try:
         c = conn.cursor()
-        c.execute(sql, site)
+        c.execute(sql, tafel)
         conn.commit()
         return c.lastrowid
     except Error as e:
         err = e
 
-def get_sites(conn):
-    sql = ''' SELECT description,title from sites order by unixtime desc limit 3 '''
+def get_tafeln(conn):
+    sql = ''' SELECT description,title from tafeln order by unixtime desc limit 20 '''
     try:
         c = conn.cursor()
         c.execute(sql)
@@ -45,7 +58,7 @@ def get_sites(conn):
     except Error as e:
         print(e)
 
-def store_site(conn, tafel):
+def store_tafel(conn, tafel):
     link = "http://www.ard-text.de/mobil/"+str(tafel)
     http = urllib3.PoolManager()
     r = http.request('GET', link)
@@ -65,9 +78,11 @@ def store_site(conn, tafel):
         desc = desc.text
         desc_hash = hashlib.md5(desc.encode('utf-8')).hexdigest()
         content = (unixtime,desc_hash,tafel,desc,title)
-        insert_site(conn,content)
+        insert_tafel(conn,content)
 
 def gen_rss(rows):
+    f = open(xml_out, "w")
+
     out = """<?xml version="1.0" encoding="UTF-8" ?>
             <rss version="2.0">
 
@@ -92,27 +107,20 @@ def gen_rss(rows):
 
     out += """ 
             </channel>
-            </rss>"""
+            </rss>
+            """
 
-    print(out)
+    f.write(out)
+    f.close()
 
 def main():
-    db = r"/home/micha/bla.db"
-    sql_create_sites_table = """CREATE TABLE IF NOT EXISTS sites (
-                                    unixtime int NOT NULL,
-                                    hash text PRIMARY KEY,
-                                    tafel int,
-                                    description text,
-                                    title text
-                                ); """
-
     conn = create_conn(db)
     if conn is not None:
-        create_table(conn, sql_create_sites_table)
-        for s in range(104, 116):
-            store_site(conn,s)
+        create_tables(conn)
+        for s in range(104, 129):
+            store_tafel(conn,s)
 
-        rows = get_sites(conn)
+        rows = get_tafeln(conn)
         gen_rss(rows)
     else:
         print("Error: No db conn")
