@@ -95,7 +95,7 @@ def gen_rss(rows):
 
             <channel>
                 <title>ARD Teletext RSS Feed (inoffiziell)</title>
-                <link>https://exitnode.net/ard_teletext.xml</link>
+                <link>https://github.com/exitnode/teletext-rss</link>
                 <description>RSS Feed des ARD Teletexts (Tafeln 104 bis 129)</description>"""
 
     for r in rows:
