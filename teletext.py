@@ -96,7 +96,7 @@ def gen_rss(rows):
         title = r[1]
 
         if cont is not None:
-            cont = cont.replace("\n","")
+            cont = cont.replace("\n"," ")
             out+= """
                 <item>
                 <title>""" + title + """</title>
