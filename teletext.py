@@ -72,14 +72,11 @@ def download_tafel(conn, tafel):
     soup = BeautifulSoup(r.data, 'html.parser')
     desc = soup.find('div', class_='std')
     title = soup.find('h1')
-    if desc is not None:
-        if title is not None:
-            title = title.text.replace("<h1>","")
-            title = title.replace("<b>","")
-            title = title.replace("</h1>","")
-            title = title.replace("</b>","")
-        else:
-            title = "N/A"
+    if desc is not None and title is not None:
+        title = title.text.replace("<h1>","")
+        title = title.replace("<b>","")
+        title = title.replace("</h1>","")
+        title = title.replace("</b>","")
         unixtime = time.time()
         desc = desc.text
         desc_hash = hashlib.md5(desc.encode('utf-8')).hexdigest()
