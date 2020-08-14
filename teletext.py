@@ -29,7 +29,8 @@ def create_tables(conn):
                                     hash text PRIMARY KEY,
                                     tafel int,
                                     description text,
-                                    title text
+                                    title text,
+                                    rubrik text
                                 ); """
 
     try:
@@ -40,13 +41,13 @@ def create_tables(conn):
         print(e)
 
 # inserts the text of a teletext tafel into the database
-def insert_tafel(conn, tafel):
+def insert_tafel(conn, content):
     
-    sql = ''' INSERT INTO tafeln(unixtime,hash,tafel,description,title)
-                VALUES(?,?,?,?,?) '''
+    sql = ''' INSERT INTO tafeln(unixtime,hash,tafel,description,title,rubrik)
+                VALUES(?,?,?,?,?,?) '''
     try:
         c = conn.cursor()
-        c.execute(sql, tafel)
+        c.execute(sql, content)
         conn.commit()
         return c.lastrowid
     except Error as e:
@@ -54,7 +55,7 @@ def insert_tafel(conn, tafel):
 
 # returns the latest n tafeln 
 def get_tafeln(conn):
-    sql = "SELECT description,title from tafeln order by unixtime desc limit " + articles
+    sql = "SELECT description,title,rubrik from tafeln order by unixtime desc limit " + articles
     try:
         c = conn.cursor()
         c.execute(sql)
@@ -64,7 +65,7 @@ def get_tafeln(conn):
         print(e)
 
 # downloads a teletext tafel and prepares it for database storage
-def download_tafel(conn, tafel):
+def download_tafel(conn, tafel, rubrik):
     link = url+str(tafel)
     http = urllib3.PoolManager()
     r = http.request('GET', link)
@@ -80,7 +81,7 @@ def download_tafel(conn, tafel):
         unixtime = time.time()
         desc = desc.text
         desc_hash = hashlib.md5(desc.encode('utf-8')).hexdigest()
-        content = (unixtime,desc_hash,tafel,desc,title)
+        content = (unixtime,desc_hash,tafel,desc,title,rubrik)
         insert_tafel(conn,content)
 
 # generates the RSS feed XML based on database content
@@ -98,13 +99,14 @@ def gen_rss(rows):
     for r in rows:
         desc = r[0]
         title = r[1]
+        rubrik = r[2]
 
         if desc is not None:
             desc = desc.replace("\n"," ")
             desc = desc.strip()
             out+= """
                 <item>
-                <title>""" + title + """</title>
+                <title>""" + rubrik + ": " + title + """</title>
                 <description>""" + desc + """</description>
                 </item>"""
 
@@ -122,7 +124,9 @@ def main():
     if conn is not None:
         create_tables(conn)
         for s in range(104, 129):
-            download_tafel(conn,s)
+            download_tafel(conn,s,"Nachrichten")
+        for s in range(136, 144):
+            download_tafel(conn,s,"Aus aller Welt")
 
         rows = get_tafeln(conn)
         gen_rss(rows)
