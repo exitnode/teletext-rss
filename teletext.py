@@ -118,6 +118,18 @@ def gen_rss(rows):
     f.write(out)
     f.close()
 
+# Cleanup db table
+def cleanup_db(conn):
+    sql = "DELETE FROM tafeln WHERE unixtime NOT IN (SELECT unixtime from tafeln order by unixtime desc limit " + articles + ")"
+    print(sql)
+
+    try:
+        c = conn.cursor()
+        c.execute(sql)
+        conn.commit()
+    except Error as e:
+        print(e)
+
 # the main funtion
 def main():
     conn = create_conn(db)
@@ -130,6 +142,7 @@ def main():
 
         rows = get_tafeln(conn)
         gen_rss(rows)
+        cleanup_db(conn)
     else:
         print("Error: No db conn")
 
