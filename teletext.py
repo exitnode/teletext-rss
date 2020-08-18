@@ -5,11 +5,28 @@ import sqlite3
 import time
 from sqlite3 import Error
 
-# configure this to your needs
-xml_out = "/home/micha/websites/exitnode.net/htdocs/ard_teletext.xml"
+#########################
+# Configuration options #
+#########################
+
+# configure these to your needs:
+
+# Where the resulting RSS feed XML should be written to:
+xml_out = "/home/micha/websites/exitnode.net/htdocs/ard_steletext.xml"
+
+# Location of your database file:
 db = r"/home/micha/teletext.db"
+
+# Number of articles in the RSS XML file:
 articles = "20"
+
+# Source URL of teletext service:
 url = "https://www.ard-text.de/mobil/"
+
+
+################
+# DB functions #
+################
 
 # creates a connection to the SQLite database
 def create_conn(db_file):
@@ -24,7 +41,7 @@ def create_conn(db_file):
 
 # creates necessary tables inside the SQLite database
 def create_tables(conn):
-    sql_create_tafeln_table = """CREATE TABLE IF NOT EXISTS tafeln (
+    sql = """CREATE TABLE IF NOT EXISTS tafeln (
                                     unixtime int NOT NULL,
                                     hash text PRIMARY KEY,
                                     tafel int,
@@ -35,14 +52,13 @@ def create_tables(conn):
 
     try:
         c = conn.cursor()
-        c.execute(sql_create_tafeln_table)
+        c.execute(sql)
         return conn
     except Error as e:
         print(e)
 
 # inserts the text of a teletext tafel into the database
 def insert_tafel(conn, content):
-    
     sql = ''' INSERT INTO tafeln(unixtime,hash,tafel,description,title,rubrik)
                 VALUES(?,?,?,?,?,?) '''
     try:
@@ -56,6 +72,7 @@ def insert_tafel(conn, content):
 # returns the latest n tafeln 
 def get_tafeln(conn):
     sql = "SELECT description,title,rubrik from tafeln order by unixtime desc limit " + articles
+
     try:
         c = conn.cursor()
         c.execute(sql)
@@ -63,6 +80,23 @@ def get_tafeln(conn):
         return rows
     except Error as e:
         print(e)
+
+# Cleanup db table
+def cleanup_db(conn):
+    sql = "DELETE FROM tafeln WHERE unixtime NOT IN (SELECT unixtime from tafeln order by unixtime desc limit " + articles + ")"
+    print(sql)
+
+    try:
+        c = conn.cursor()
+        c.execute(sql)
+        conn.commit()
+    except Error as e:
+        print(e)
+
+
+#################
+# program logic #
+#################
 
 # downloads a teletext tafel and prepares it for database storage
 def download_tafel(conn, tafel, rubrik):
@@ -118,17 +152,6 @@ def gen_rss(rows):
     f.write(out)
     f.close()
 
-# Cleanup db table
-def cleanup_db(conn):
-    sql = "DELETE FROM tafeln WHERE unixtime NOT IN (SELECT unixtime from tafeln order by unixtime desc limit " + articles + ")"
-    print(sql)
-
-    try:
-        c = conn.cursor()
-        c.execute(sql)
-        conn.commit()
-    except Error as e:
-        print(e)
 
 # the main funtion
 def main():
