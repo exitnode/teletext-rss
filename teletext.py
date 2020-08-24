@@ -12,7 +12,7 @@ from sqlite3 import Error
 # configure these to your needs:
 
 # Where the resulting RSS feed XML should be written to:
-xml_out = "/home/micha/websites/exitnode.net/htdocs/ard_steletext.xml"
+xml_out = "/home/micha/websites/exitnode.net/htdocs/ard_teletext.xml"
 
 # Location of your database file:
 db = r"/home/micha/teletext.db"
@@ -84,7 +84,6 @@ def get_tafeln(conn):
 # Cleanup db table
 def cleanup_db(conn):
     sql = "DELETE FROM tafeln WHERE unixtime NOT IN (SELECT unixtime from tafeln order by unixtime desc limit " + articles + ")"
-    print(sql)
 
     try:
         c = conn.cursor()
