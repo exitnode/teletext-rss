@@ -105,7 +105,7 @@ def download_tafel(conn, tafel, rubrik):
     
     soup = BeautifulSoup(r.data, 'html.parser')
     desc = soup.find('div', class_='std')
-    title = soup.find('h1')
+    title = soup.find('h2')
     if desc is not None and title is not None:
         title = title.text.replace("<h1>","")
         title = title.replace("<b>","")
